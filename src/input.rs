@@ -10,14 +10,16 @@ pub enum LedgerItem {
     Deposit(DepositData),
     Withdrawal(WithdrawalData),
     Dispute(DisputeData),
+    Resolve(ResolveData),
 }
 
 impl LedgerItem {
     pub fn client(&self) -> ClientId {
         match self {
-            LedgerItem::Deposit(deposit_data) => deposit_data.client,
-            LedgerItem::Withdrawal(withdrawal_darta) => withdrawal_darta.client,
-            LedgerItem::Dispute(dispute_data) => dispute_data.client,
+            LedgerItem::Deposit(data) => data.client,
+            LedgerItem::Withdrawal(data) => data.client,
+            LedgerItem::Dispute(data) => data.client,
+            LedgerItem::Resolve(data) => data.client,
         }
     }
 }
@@ -42,6 +44,10 @@ impl TryFrom<StringRecord> for LedgerItem {
                 client: value.get(1).unwrap().parse()?,
                 tx: value.get(2).unwrap().parse()?,
             }),
+            Some("resolve") => Self::Resolve(ResolveData {
+                client: value.get(1).unwrap().parse()?,
+                tx: value.get(2).unwrap().parse()?,
+            }),
             _ => return Err(InvalidCsvRow),
         };
         Ok(value)
@@ -55,15 +61,12 @@ pub struct DepositData {
     pub amount: Decimal,
 }
 
+pub type WithdrawalData = DepositData;
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DisputeData {
     pub client: ClientId,
     pub tx: TransactionId,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct WithdrawalData {
-    pub client: ClientId,
-    pub tx: TransactionId,
-    pub amount: Decimal,
-}
+pub type ResolveData = DisputeData;

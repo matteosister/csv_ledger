@@ -14,6 +14,9 @@ pub enum Error {
     #[error("invalid dispute")]
     InvalidDispute,
 
+    #[error("invalid resolve")]
+    InvalidResolve,
+
     #[error(transparent)]
     ParseIntError(#[from] ParseIntError),
 

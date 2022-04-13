@@ -19,14 +19,17 @@ pub struct Account {
 struct Transaction {
     id: TransactionId,
     amount: Decimal,
+    dispute: bool,
 }
 
 impl Account {
+    /// main api for the Account. Handle a LedgerItem and updates itself accordingly
     pub fn handle_ledger_item(&mut self, ledger_item: LedgerItem) -> CsvLedgerResult<()> {
         match ledger_item {
             LedgerItem::Deposit(deposit_data) => self.deposit(&deposit_data),
             LedgerItem::Withdrawal(withdrawal_data) => self.withdrawal(&withdrawal_data)?,
             LedgerItem::Dispute(dispute_data) => self.dispute(&dispute_data)?,
+            LedgerItem::Resolve(resolve_data) => self.resolve(&resolve_data)?,
         }
         Ok(())
     }
@@ -37,6 +40,7 @@ impl Account {
         self.transactions.push(Transaction {
             id: deposit_data.tx,
             amount: deposit_data.amount,
+            dispute: false,
         })
     }
 
@@ -50,16 +54,36 @@ impl Account {
     }
 
     fn dispute(&mut self, dispute_data: &DisputeData) -> CsvLedgerResult<()> {
-        let transaction = self.transactions.iter().find(|t| t.id == dispute_data.tx);
+        let transaction = self
+            .transactions
+            .iter_mut()
+            .find(|t| t.id == dispute_data.tx);
 
         match transaction {
             None => Err(Error::InvalidDispute),
             Some(transaction) => {
+                transaction.dispute = true;
                 if self.available < transaction.amount {
                     return Err(Error::InvalidWithdraw);
                 }
                 self.available -= transaction.amount;
                 self.held += transaction.amount;
+                Ok(())
+            }
+        }
+    }
+
+    fn resolve(&mut self, resolve_data: &ResolveData) -> CsvLedgerResult<()> {
+        let transaction = self.transactions.iter().find(|t| t.id == resolve_data.tx);
+
+        match transaction {
+            None => Err(Error::InvalidResolve),
+            Some(transaction) => {
+                if !transaction.dispute {
+                    return Err(Error::InvalidResolve);
+                }
+                self.available += transaction.amount;
+                self.held -= transaction.amount;
                 Ok(())
             }
         }
