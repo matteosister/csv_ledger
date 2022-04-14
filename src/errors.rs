@@ -5,7 +5,7 @@ use thiserror::Error;
 
 pub type CsvLedgerResult<T> = Result<T, Error>;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum Error {
     #[error("insufficient fund to complete a withdraw")]
     InvalidWithdraw,
@@ -18,6 +18,12 @@ pub enum Error {
 
     #[error("invalid resolve")]
     InvalidResolve,
+
+    #[error("invalid chargeback")]
+    InvalidChargeback,
+
+    #[error("attempted operation on a locked account")]
+    LockedAccount,
 
     #[error(transparent)]
     ParseInt(#[from] ParseIntError),

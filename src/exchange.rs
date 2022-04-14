@@ -15,6 +15,10 @@ impl Exchange {
         Self(HashMap::new())
     }
 
+    pub fn accounts(&self) -> impl Iterator<Item = &Account> {
+        self.0.iter().map(|map| map.1)
+    }
+
     /// handle an item from the ledger csv
     pub fn handle_ledger_item(&mut self, ledger_item: LedgerItem) -> CsvLedgerResult<()> {
         self.get_or_create_bank_account(ledger_item.client())
@@ -25,6 +29,8 @@ impl Exchange {
     /// If the Exchange do not have an account with the given client_id, then create it.
     /// In any case return the account as a mutable reference
     fn get_or_create_bank_account(&mut self, client_id: ClientId) -> &mut Account {
-        self.0.entry(client_id).or_default()
+        self.0
+            .entry(client_id)
+            .or_insert_with(|| Account::new(client_id))
     }
 }

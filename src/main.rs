@@ -28,7 +28,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         exchange.handle_ledger_item(ledger_item)?;
     }
 
-    dbg!(exchange);
+    let mut writer = csv::Writer::from_writer(vec![]);
+    for account in exchange.accounts() {
+        writer.serialize(account)?;
+    }
+    println!("{}", String::from_utf8(writer.into_inner()?)?);
 
     Ok(())
 }
