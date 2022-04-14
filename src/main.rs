@@ -2,14 +2,17 @@ use std::env;
 use std::error::Error;
 
 use crate::exchange::Exchange;
-pub use crate::input::*;
+pub(crate) use crate::input::*;
 
 mod account;
 mod errors;
 mod exchange;
 mod input;
 
+/// A client id
 pub type ClientId = u16;
+
+/// A transaction id
 pub type TransactionId = u32;
 
 fn main() -> Result<(), Box<dyn Error>> {

@@ -1,3 +1,5 @@
+//! The error module
+
 use std::num::ParseIntError;
 use thiserror::Error;
 
@@ -18,8 +20,8 @@ pub enum Error {
     InvalidResolve,
 
     #[error(transparent)]
-    ParseIntError(#[from] ParseIntError),
+    ParseInt(#[from] ParseIntError),
 
     #[error(transparent)]
-    DecimalConversionError(#[from] rust_decimal::Error),
+    DecimalConversion(#[from] rust_decimal::Error),
 }

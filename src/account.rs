@@ -1,8 +1,12 @@
+//! An account is a single client id in the Exchange
+//!
+//! It contains all the data regarding money availabilities and the related transaction
+//! It also handles all the possible ledger items and controversy resolution
+
 use rust_decimal::prelude::*;
 use serde::Serialize;
 
 use crate::errors::{CsvLedgerResult, Error};
-use crate::input::*;
 use crate::{LedgerItem, TransactionId};
 
 #[derive(Debug, Serialize, Default)]
@@ -10,7 +14,7 @@ pub struct Account {
     available: Decimal,
     held: Decimal,
     total: Decimal,
-    locked: bool,
+    frozen: bool,
     #[serde(skip)]
     transactions: Vec<Transaction>,
 }
@@ -26,66 +30,180 @@ impl Account {
     /// main api for the Account. Handle a LedgerItem and updates itself accordingly
     pub fn handle_ledger_item(&mut self, ledger_item: LedgerItem) -> CsvLedgerResult<()> {
         match ledger_item {
-            LedgerItem::Deposit(deposit_data) => self.deposit(&deposit_data),
-            LedgerItem::Withdrawal(withdrawal_data) => self.withdrawal(&withdrawal_data)?,
-            LedgerItem::Dispute(dispute_data) => self.dispute(&dispute_data)?,
-            LedgerItem::Resolve(resolve_data) => self.resolve(&resolve_data)?,
+            LedgerItem::Deposit(data) => self.deposit(data.tx, data.amount),
+            LedgerItem::Withdrawal(data) => self.withdrawal(data.amount)?,
+            LedgerItem::Dispute(data) => self.dispute(data.tx)?,
+            LedgerItem::Resolve(data) => self.resolve(data.tx)?,
+            LedgerItem::Chargeback(data) => unimplemented!(),
         }
         Ok(())
     }
 
-    fn deposit(&mut self, deposit_data: &DepositData) {
-        self.available += deposit_data.amount.round_dp(4);
-        self.total += deposit_data.amount.round_dp(4);
+    /// deposit funds into the account
+    ///
+    /// In this scenario this will never fail. In a real world use case this should probably return
+    /// a Result
+    fn deposit(&mut self, tx: TransactionId, amount: Decimal) {
+        let amount = Self::round(amount);
+        self.available += amount;
+        self.total += amount;
         self.transactions.push(Transaction {
-            id: deposit_data.tx,
-            amount: deposit_data.amount,
+            id: tx,
+            amount,
             dispute: false,
         })
     }
 
-    fn withdrawal(&mut self, withdrawal_data: &WithdrawalData) -> CsvLedgerResult<()> {
-        if self.available < withdrawal_data.amount {
+    /// withdraw funds from the account
+    /// I'm not saving the transaction here because it's not useful for the purpose of the exercise.
+    /// But in a more advanced scenario I should have added this as a negative transaction inside the account.
+    ///
+    /// Fails if the availability is lower than the amount requested
+    fn withdrawal(&mut self, amount: Decimal) -> CsvLedgerResult<()> {
+        let amount = Self::round(amount);
+        if self.available < amount {
             return Err(Error::InvalidWithdraw);
         }
-        self.available -= withdrawal_data.amount.round_dp(4);
-        self.total -= withdrawal_data.amount.round_dp(4);
+        self.available -= amount;
+        self.total -= amount;
         Ok(())
     }
 
-    fn dispute(&mut self, dispute_data: &DisputeData) -> CsvLedgerResult<()> {
-        let transaction = self
-            .transactions
-            .iter_mut()
-            .find(|t| t.id == dispute_data.tx);
+    /// attempt a dispute for a previous transaction
+    ///
+    /// Fails if the transaction is not present in the account and if the availability is less than
+    /// the transaction amount
+    fn dispute(&mut self, tx: TransactionId) -> CsvLedgerResult<()> {
+        let transaction = self.transactions.iter_mut().find(|t| t.id == tx);
 
         match transaction {
             None => Err(Error::InvalidDispute),
             Some(transaction) => {
+                let amount = Self::round(transaction.amount);
                 transaction.dispute = true;
-                if self.available < transaction.amount {
+                if self.available < amount {
                     return Err(Error::InvalidWithdraw);
                 }
-                self.available -= transaction.amount;
-                self.held += transaction.amount;
+                self.available -= amount;
+                self.held += amount;
                 Ok(())
             }
         }
     }
 
-    fn resolve(&mut self, resolve_data: &ResolveData) -> CsvLedgerResult<()> {
-        let transaction = self.transactions.iter().find(|t| t.id == resolve_data.tx);
+    /// Resolve a previous dispute
+    ///
+    /// Fails if the transaction is not present in the account, or if the previous transaction
+    /// wasn't in a dispute state
+    fn resolve(&mut self, tx: TransactionId) -> CsvLedgerResult<()> {
+        let transaction = self.transactions.iter().find(|t| t.id == tx);
 
         match transaction {
             None => Err(Error::InvalidResolve),
             Some(transaction) => {
+                let amount = Self::round(transaction.amount);
                 if !transaction.dispute {
                     return Err(Error::InvalidResolve);
                 }
-                self.available += transaction.amount;
-                self.held -= transaction.amount;
+                self.available += amount;
+                self.held -= amount;
                 Ok(())
             }
         }
+    }
+
+    fn round(amount: Decimal) -> Decimal {
+        amount.round_dp(4)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deposit_on_an_new_account() {
+        let mut account = Account::default();
+        let amount = Decimal::new(200, 2);
+        account.deposit(1, amount);
+        assert_eq!(account.available, amount);
+        assert_eq!(account.total, amount);
+    }
+
+    #[test]
+    fn test_double_deposit_should_double_total_and_availability() {
+        let mut account = Account::default();
+        let amount = Decimal::new(200, 2);
+        account.deposit(1, amount);
+        account.deposit(2, amount);
+        assert_eq!(account.available, amount + amount);
+        assert_eq!(account.total, amount + amount);
+    }
+
+    #[test]
+    fn test_a_deposit_should_be_rounded_to_4_decimal_digits() {
+        let mut account = Account::default();
+        let amount = Decimal::new(2000001, 6);
+        let actual_amount = Decimal::new(20000, 4);
+        account.deposit(1, amount);
+        assert_eq!(account.available, actual_amount);
+        assert_eq!(account.total, actual_amount);
+    }
+
+    #[test]
+    fn test_withdraw_funds() {
+        let mut account = Account::default();
+        let amount = Decimal::new(200, 2);
+        account.deposit(1, amount);
+        assert_eq!(account.available, amount);
+        assert_eq!(account.total, amount);
+        let withdraw = account.withdrawal(amount);
+        assert!(withdraw.is_ok());
+        assert_eq!(account.available, Decimal::zero());
+        assert_eq!(account.total, Decimal::zero());
+    }
+
+    #[test]
+    fn test_withdraw_funds_without_availability() {
+        let mut account = Account::default();
+        let amount = Decimal::new(200, 2);
+        let withdraw = account.withdrawal(amount);
+        assert!(withdraw.is_err());
+        // here I could also check for the error type
+    }
+
+    #[test]
+    fn test_dispute() {
+        let mut account = Account::default();
+        let amount = Decimal::new(200, 2);
+        account.deposit(1, amount);
+        let dispute = account.dispute(1);
+        assert!(dispute.is_ok());
+        assert_eq!(account.held, amount);
+        assert_eq!(account.total, amount);
+        assert_eq!(account.available, Decimal::zero());
+    }
+
+    #[test]
+    fn test_dispute_for_non_existent_transaction() {
+        let mut account = Account::default();
+        let amount = Decimal::new(200, 2);
+        account.deposit(1, amount);
+        let dispute = account.dispute(2);
+        assert!(dispute.is_err());
+        // here I could also check for the error type
+    }
+
+    #[test]
+    fn test_resolve_a_previous_dispute() {
+        let mut account = Account::default();
+        let amount = Decimal::new(200, 2);
+        account.deposit(1, amount);
+        let dispute = account.dispute(1);
+        assert!(dispute.is_ok());
+        let resolve = account.resolve(1);
+        assert!(resolve.is_ok());
+        assert_eq!(account.available, amount);
+        assert_eq!(account.total, amount);
     }
 }
