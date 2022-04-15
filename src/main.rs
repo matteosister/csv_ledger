@@ -18,8 +18,7 @@ pub type TransactionId = u32;
 fn main() -> Result<(), Box<dyn Error>> {
     // parse arguments. I could have used clap here, but it's overkill for just a parameter :)
     let csv_file = env::args()
-        .skip(1)
-        .next()
+        .nth(1)
         .expect("You need to pass a csv file name argument");
 
     // create a bank instance from the given csv file

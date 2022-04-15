@@ -16,7 +16,7 @@ fn main() {
     let mut wtr = Writer::from_writer(file);
 
     for i in 1..=10000 {
-        wtr.serialize(Row {
+        let _ = wtr.serialize(Row {
             r#type: "deposit",
             client: &i.to_string(),
             tx: i as u32,
