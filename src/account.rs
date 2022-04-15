@@ -1,4 +1,4 @@
-//! An account is a single client id in the Exchange
+//! An account is a single client id in the Bank
 //!
 //! It contains all the data regarding money availabilities and the related transaction
 //! It also handles all the possible ledger items and controversy resolution
@@ -9,7 +9,8 @@ use serde::Serialize;
 use crate::errors::{CsvLedgerResult, Error};
 use crate::{ClientId, LedgerItem, TransactionId};
 
-#[derive(Debug, Serialize)]
+/// a struct that represent an account of the Bank.
+#[derive(Debug, Serialize, Default)]
 pub struct Account {
     client: ClientId,
     available: Decimal,
@@ -25,11 +26,7 @@ impl Account {
     pub fn new(client: ClientId) -> Self {
         Self {
             client,
-            available: Decimal::default(),
-            held: Decimal::default(),
-            total: Decimal::default(),
-            frozen: false,
-            transactions: vec![],
+            ..Self::default()
         }
     }
 }
