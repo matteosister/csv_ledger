@@ -14,7 +14,6 @@ Talking about efficiency, a better approach could be parsing the file and just s
 Then, when iterating over accounts to output the final state, apply rows directly from the csv file.
 This is better from a memory perspective, because as soon as you complete an account you could drop all the transactions
 you have in memory, but worst for the processor and IO, because probably you end up iterating over the csv file multiple times.
-It's also a tradeoff between efficiency and code complexity.
 
 #### tests
     cargo test
