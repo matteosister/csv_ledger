@@ -66,7 +66,7 @@ impl Account {
         self.total += amount;
         self.transactions.push(Transaction {
             id: tx,
-            amount,
+            amount: Self::round(amount),
             dispute: false,
         })
     }
@@ -96,7 +96,7 @@ impl Account {
         match transaction {
             None => Err(Error::InvalidDispute),
             Some(transaction) => {
-                let amount = Self::round(transaction.amount);
+                let amount = transaction.amount;
                 transaction.dispute = true;
                 if self.available < amount {
                     return Err(Error::InvalidWithdraw);
@@ -118,7 +118,7 @@ impl Account {
         match transaction {
             None => Err(Error::InvalidResolve),
             Some(transaction) => {
-                let amount = Self::round(transaction.amount);
+                let amount = transaction.amount;
                 if !transaction.dispute {
                     return Err(Error::InvalidResolve);
                 }
@@ -139,7 +139,7 @@ impl Account {
         match transaction {
             None => Err(Error::InvalidChargeback),
             Some(transaction) => {
-                let amount = Self::round(transaction.amount);
+                let amount = transaction.amount;
                 if !transaction.dispute {
                     return Err(Error::InvalidChargeback);
                 }
