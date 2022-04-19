@@ -47,3 +47,18 @@ impl Bank {
             .or_insert_with(|| Account::new(client_id))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::DepositData;
+    use crate::LedgerItem::Deposit;
+    use rust_decimal::Decimal;
+
+    #[test]
+    fn test_get_or_create() {
+        let mut bank = Bank::new();
+        let account = Account::new(1);
+        assert_eq!(&account, bank.get_or_create_bank_account(1));
+    }
+}

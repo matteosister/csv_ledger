@@ -11,6 +11,7 @@ use crate::{ClientId, LedgerItem, TransactionId};
 
 /// a struct that represent an account of the Bank.
 #[derive(Debug, Serialize, Default)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Account {
     client: ClientId,
     available: Decimal,
@@ -32,6 +33,7 @@ impl Account {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 struct Transaction {
     id: TransactionId,
     amount: Decimal,
