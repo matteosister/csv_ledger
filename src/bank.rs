@@ -51,9 +51,6 @@ impl Bank {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DepositData;
-    use crate::LedgerItem::Deposit;
-    use rust_decimal::Decimal;
 
     #[test]
     fn test_get_or_create() {
